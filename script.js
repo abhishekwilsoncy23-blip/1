@@ -2,15 +2,14 @@
 let players = [];
 let liarIndex = -1;
 let currentQuestionPair = null;      // { normal, liar }
-let playerViewed = [];              // boolean per player
+let playerViewed = [];              // boolean per player (also implies answered)
 let playerAnswers = [];             // string per player
-let gamePhase = 'add';             // 'add' | 'view' | 'write' | 'reveal'
+let gamePhase = 'add';             // 'add' | 'view' | 'reveal'
 let questionsData = [];
 
 // DOM references
 const stepAdd = document.getElementById('step-add');
 const stepView = document.getElementById('step-view');
-const stepWrite = document.getElementById('step-write');
 const stepReveal = document.getElementById('step-reveal');
 
 const playerNameInput = document.getElementById('playerNameInput');
@@ -20,12 +19,8 @@ const startGameBtn = document.getElementById('startGameBtn');
 const stepAddStatus = document.getElementById('stepAddStatus');
 
 const viewPlayerList = document.getElementById('viewPlayerList');
-const proceedToWriteBtn = document.getElementById('proceedToWriteBtn');
 const stepViewStatus = document.getElementById('stepViewStatus');
-
-const writeContainer = document.getElementById('writeContainer');
 const revealBtn = document.getElementById('revealBtn');
-const stepWriteStatus = document.getElementById('stepWriteStatus');
 
 const revealContent = document.getElementById('revealContent');
 const playAgainBtn = document.getElementById('playAgainBtn');
@@ -33,8 +28,8 @@ const playAgainBtn = document.getElementById('playAgainBtn');
 const modalOverlay = document.getElementById('questionModal');
 const modalPlayerName = document.getElementById('modalPlayerName');
 const modalQuestion = document.getElementById('modalQuestion');
-const modalNote = document.getElementById('modalNote');
-const modalGotItBtn = document.getElementById('modalGotItBtn');
+const modalAnswerInput = document.getElementById('modalAnswerInput');
+const modalSubmitBtn = document.getElementById('modalSubmitBtn');
 
 let currentModalPlayerIdx = -1;
 
@@ -64,12 +59,18 @@ function showStep(stepId) {
   document.getElementById(stepId).classList.add('active');
 }
 
-function renderPlayerList(container, list, withRemove = false, viewedArr = null) {
+function renderPlayerList(container, list, withRemove = false, viewedArr = null, clickable = false) {
   container.innerHTML = '';
   list.forEach((name, idx) => {
     const tag = document.createElement('span');
     tag.className = 'player-tag';
-    if (viewedArr && viewedArr[idx]) tag.classList.add('viewed');
+    if (viewedArr && viewedArr[idx]) {
+      tag.classList.add('viewed');
+    }
+    if (clickable && !viewedArr[idx]) {
+      tag.classList.add('clickable');
+      tag.addEventListener('click', () => showQuestionFor(idx));
+    }
     tag.textContent = name;
     if (withRemove) {
       const removeSpan = document.createElement('span');
@@ -81,10 +82,6 @@ function renderPlayerList(container, list, withRemove = false, viewedArr = null)
         removePlayer(idx);
       });
       tag.appendChild(removeSpan);
-    }
-    if (!withRemove && viewedArr !== undefined) {
-      tag.style.cursor = 'pointer';
-      tag.addEventListener('click', () => showQuestionFor(idx));
     }
     container.appendChild(tag);
   });
@@ -138,9 +135,9 @@ function startRound() {
 
   gamePhase = 'view';
   showStep('step-view');
-  renderPlayerList(viewPlayerList, players, false, playerViewed);
-  proceedToWriteBtn.disabled = true;
-  stepViewStatus.textContent = 'Tap your name to see your secret question.';
+  renderPlayerList(viewPlayerList, players, false, playerViewed, true);
+  revealBtn.disabled = true;
+  stepViewStatus.textContent = 'Tap your name to see your question and submit your answer.';
 }
 
 // ----- Start Game button -----
@@ -150,152 +147,72 @@ startGameBtn.addEventListener('click', async () => {
   startRound();
 });
 
-// ----- Show question modal (neutral message) -----
+// ----- Show modal with question + answer input -----
 function showQuestionFor(idx) {
   if (gamePhase !== 'view') return;
   if (playerViewed[idx]) {
-    stepViewStatus.textContent = 'You already viewed your question.';
+    stepViewStatus.textContent = 'You already answered! Pass the device to the next player.';
     return;
   }
+
   currentModalPlayerIdx = idx;
   modalPlayerName.textContent = `👤 ${players[idx]}`;
   const isLiar = (idx === liarIndex);
   modalQuestion.textContent = isLiar ? currentQuestionPair.liar : currentQuestionPair.normal;
-  modalNote.textContent = 'This is your secret question. Memorize it and do not show others!';
+  modalAnswerInput.value = ''; // clear previous answer
+  modalAnswerInput.focus();
   modalOverlay.classList.add('show');
 }
 
-modalGotItBtn.addEventListener('click', () => {
+// ----- Submit answer from modal -----
+function submitAnswerFromModal() {
   if (currentModalPlayerIdx === -1) return;
   const idx = currentModalPlayerIdx;
-  playerViewed[idx] = true;
-  modalOverlay.classList.remove('show');
-  currentModalPlayerIdx = -1;
+  const answer = modalAnswerInput.value.trim();
 
-  renderPlayerList(viewPlayerList, players, false, playerViewed);
-
-  const allViewed = playerViewed.every(v => v === true);
-  if (allViewed) {
-    proceedToWriteBtn.disabled = false;
-    stepViewStatus.textContent = 'Everyone has seen their question. Go write your answers!';
-  } else {
-    stepViewStatus.textContent = `${playerViewed.filter(v => v).length} / ${players.length} have viewed.`;
-  }
-});
-
-modalOverlay.addEventListener('click', (e) => {
-  if (e.target === modalOverlay) {
-    // Force them to click "Got it"
-  }
-});
-
-// ----- Proceed to Write Answers (shows each player's question) -----
-proceedToWriteBtn.addEventListener('click', () => {
-  gamePhase = 'write';
-  showStep('step-write');
-  renderWriteUI();
-  revealBtn.disabled = true;
-  stepWriteStatus.textContent = 'Each player submits their own answer.';
-});
-
-function renderWriteUI() {
-  writeContainer.innerHTML = '';
-  players.forEach((name, idx) => {
-    const isLiar = (idx === liarIndex);
-    const question = isLiar ? currentQuestionPair.liar : currentQuestionPair.normal;
-
-    const row = document.createElement('div');
-    row.className = 'answer-row';
-    if (playerAnswers[idx]) row.classList.add('answered');
-    row.dataset.idx = idx;
-
-    const header = document.createElement('div');
-    header.className = 'player-header';
-    const nameSpan = document.createElement('span');
-    nameSpan.className = 'player-name';
-    nameSpan.textContent = name;
-    const questionSpan = document.createElement('span');
-    questionSpan.className = 'player-question';
-    questionSpan.textContent = `📌 ${question}`;
-    header.appendChild(nameSpan);
-    header.appendChild(questionSpan);
-    row.appendChild(header);
-
-    const inputGroup = document.createElement('div');
-    inputGroup.className = 'answer-input-group';
-
-    const input = document.createElement('input');
-    input.type = 'text';
-    input.placeholder = 'Write your answer...';
-    input.id = `answer-input-${idx}`;
-    if (playerAnswers[idx]) {
-      input.value = playerAnswers[idx];
-      input.disabled = true;
-    }
-
-    const submitBtn = document.createElement('button');
-    submitBtn.className = 'btn-submit-answer';
-    submitBtn.textContent = 'Submit';
-    submitBtn.dataset.idx = idx;
-    submitBtn.disabled = !!playerAnswers[idx];
-    submitBtn.addEventListener('click', () => submitAnswer(idx));
-
-    const statusSpan = document.createElement('span');
-    statusSpan.className = 'status-badge';
-    if (playerAnswers[idx]) {
-      statusSpan.textContent = '✔ Answered';
-      statusSpan.classList.add('done');
-    } else {
-      statusSpan.textContent = '⏳ Not yet';
-    }
-
-    inputGroup.appendChild(input);
-    inputGroup.appendChild(submitBtn);
-    inputGroup.appendChild(statusSpan);
-    row.appendChild(inputGroup);
-    writeContainer.appendChild(row);
-
-    input.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' && !input.disabled) {
-        submitAnswer(idx);
-      }
-    });
-  });
-}
-
-function submitAnswer(idx) {
-  if (gamePhase !== 'write') return;
-  if (playerAnswers[idx]) return;
-
-  const input = document.getElementById(`answer-input-${idx}`);
-  const answer = input.value.trim();
   if (!answer) {
-    stepWriteStatus.textContent = 'Please write something before submitting.';
+    alert('Please type your answer before submitting.');
     return;
   }
 
+  // Save answer and mark as viewed/answered
   playerAnswers[idx] = answer;
-  input.disabled = true;
-  const row = input.closest('.answer-row');
-  row.classList.add('answered');
-  const submitBtn = row.querySelector('.btn-submit-answer');
-  submitBtn.disabled = true;
-  const statusSpan = row.querySelector('.status-badge');
-  statusSpan.textContent = '✔ Answered';
-  statusSpan.classList.add('done');
+  playerViewed[idx] = true;
 
-  stepWriteStatus.textContent = '';
+  modalOverlay.classList.remove('show');
+  currentModalPlayerIdx = -1;
 
-  // Check if all answered
+  // Re-render the player list in the view step (shows checkmarks)
+  renderPlayerList(viewPlayerList, players, false, playerViewed, true);
+
+  // Check if all players have answered
   const allAnswered = playerAnswers.every(a => a !== '');
   if (allAnswered) {
     revealBtn.disabled = false;
-    stepWriteStatus.textContent = 'Everyone has answered! Click Reveal.';
+    stepViewStatus.textContent = '🎉 Everyone has answered! Click Reveal.';
   } else {
     const count = playerAnswers.filter(a => a !== '').length;
-    stepWriteStatus.textContent = `${count} / ${players.length} answered.`;
+    stepViewStatus.textContent = `${count} / ${players.length} have answered.`;
   }
 }
+
+// Modal submit button
+modalSubmitBtn.addEventListener('click', submitAnswerFromModal);
+
+// Press Enter in the input field to submit
+modalAnswerInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();
+    submitAnswerFromModal();
+  }
+});
+
+// Close modal only via the submit button (prevents accidental exit)
+modalOverlay.addEventListener('click', (e) => {
+  if (e.target === modalOverlay) {
+    // Force them to submit
+  }
+});
 
 // ----- Reveal -----
 revealBtn.addEventListener('click', () => {
