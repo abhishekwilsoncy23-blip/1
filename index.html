@@ -76,8 +76,6 @@
     }
     button.success { background: #28a745; }
     button.success:hover { background: #218838; }
-    button.danger { background: #dc3545; }
-    button.danger:hover { background: #c82333; }
 
     .player-list {
       display: flex;
@@ -93,6 +91,7 @@
       align-items: center;
       gap: 8px;
       font-size: 15px;
+      cursor: default;
     }
     .player-tag .remove {
       cursor: pointer;
@@ -101,6 +100,8 @@
       margin-left: 4px;
     }
     .player-tag .remove:hover { color: #a71d2a; }
+
+    /* Viewed & Answered */
     .player-tag.viewed {
       background: #c3e6cb;
     }
@@ -110,78 +111,12 @@
       font-weight: bold;
     }
 
-    /* Answer rows */
-    .answer-row {
-      background: #f8f9fa;
-      border-radius: 12px;
-      padding: 15px 18px;
-      margin: 12px 0;
-      border-left: 5px solid #4a6fa5;
+    /* Only clickable during view phase */
+    .player-tag.clickable {
+      cursor: pointer;
     }
-    .answer-row.answered {
-      border-left-color: #28a745;
-      background: #f0f9f0;
-    }
-    .answer-row .player-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-bottom: 6px;
-    }
-    .answer-row .player-name {
-      font-weight: 700;
-      font-size: 1.1rem;
-      color: #1a2639;
-    }
-    .answer-row .player-question {
-      font-size: 0.95rem;
-      color: #495057;
-      background: white;
-      padding: 4px 14px;
-      border-radius: 20px;
-      border: 1px dashed #ced4da;
-      word-break: break-word;
-    }
-    .answer-row .answer-input-group {
-      display: flex;
-      gap: 10px;
-      margin-top: 8px;
-      flex-wrap: wrap;
-      align-items: center;
-    }
-    .answer-row input {
-      flex: 1;
-      min-width: 180px;
-      padding: 10px 14px;
-      border: 2px solid #ddd;
-      border-radius: 8px;
-      font-size: 15px;
-    }
-    .answer-row input:disabled {
-      background: #e9ecef;
-      border-color: #ced4da;
-    }
-    .answer-row .status-badge {
-      font-size: 0.9rem;
-      color: #6c757d;
-      min-width: 80px;
-      text-align: right;
-    }
-    .answer-row .status-badge.done {
-      color: #28a745;
-      font-weight: bold;
-    }
-    .answer-row .btn-submit-answer {
-      background: #28a745;
-      padding: 8px 20px;
-      font-size: 14px;
-      border-radius: 8px;
-      white-space: nowrap;
-    }
-    .answer-row .btn-submit-answer:disabled {
-      background: #6c757d;
+    .player-tag.clickable:hover {
+      background: #d4d8dd;
     }
 
     /* Reveal display */
@@ -250,7 +185,7 @@
       background: white;
       padding: 30px 35px;
       border-radius: 16px;
-      max-width: 450px;
+      max-width: 500px;
       width: 100%;
       text-align: center;
       box-shadow: 0 10px 40px rgba(0,0,0,0.3);
@@ -259,18 +194,46 @@
     .modal-box .question-text {
       font-size: 20px;
       font-weight: 500;
-      margin: 20px 0;
+      margin: 15px 0;
       padding: 15px;
       background: #f8f9fa;
       border-radius: 10px;
     }
-    .modal-box .note { font-size: 14px; color: #6c757d; margin-bottom: 20px; }
+    .modal-box .answer-input-area {
+      margin: 15px 0;
+      text-align: left;
+    }
+    .modal-box .answer-input-area label {
+      font-weight: 600;
+      display: block;
+      margin-bottom: 5px;
+    }
+    .modal-box .answer-input-area input {
+      width: 100%;
+      padding: 10px 14px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    .modal-box .answer-input-area input:focus {
+      border-color: #4a6fa5;
+      outline: none;
+    }
+    .modal-box .note {
+      font-size: 14px;
+      color: #6c757d;
+      margin: 10px 0 20px 0;
+    }
+    #modalSubmitBtn {
+      background: #28a745;
+      padding: 10px 30px;
+      font-size: 16px;
+      border-radius: 8px;
+    }
+    #modalSubmitBtn:hover { background: #218838; }
 
     @media (max-width: 600px) {
       .container { padding: 15px; }
-      .answer-row { padding: 12px; }
-      .answer-row .player-question { font-size: 0.85rem; }
-      .answer-row input { min-width: 120px; font-size: 14px; }
       .modal-box { padding: 20px; }
     }
   </style>
@@ -294,27 +257,17 @@
     <div class="status-msg text-center" id="stepAddStatus"></div>
   </div>
 
-  <!-- STEP 2: View Questions -->
+  <!-- STEP 2: View Questions & Answer (merged) -->
   <div id="step-view" class="step">
-    <p>Each player, tap your name to see your secret question.</p>
+    <p>Each player, tap your name to see your question, write your answer, and submit.</p>
     <div id="viewPlayerList" class="player-list"></div>
-    <div class="flex-center mt-15">
-      <button id="proceedToWriteBtn" disabled>✍️ Go to Writing Answers</button>
+    <div class="flex-center mt-20">
+      <button id="revealBtn" disabled class="success">🔍 Reveal</button>
     </div>
     <div class="status-msg text-center" id="stepViewStatus"></div>
   </div>
 
-  <!-- STEP 3: Write Answers (shows each player's question) -->
-  <div id="step-write" class="step">
-    <p>Each player, answer your own secret question below.</p>
-    <div id="writeContainer"></div>
-    <div class="flex-center mt-15">
-      <button id="revealBtn" disabled>🔍 Reveal</button>
-    </div>
-    <div class="status-msg text-center" id="stepWriteStatus"></div>
-  </div>
-
-  <!-- STEP 4: Final Reveal -->
+  <!-- STEP 3: Final Reveal -->
   <div id="step-reveal" class="step">
     <div id="revealContent"></div>
     <div class="flex-center mt-20">
@@ -323,13 +276,17 @@
   </div>
 </div>
 
-<!-- Modal for viewing secret question -->
+<!-- Modal: Question + Answer input -->
 <div class="modal-overlay" id="questionModal">
   <div class="modal-box">
     <h3 id="modalPlayerName">👤 Player</h3>
     <div class="question-text" id="modalQuestion">Your question goes here</div>
-    <div class="note" id="modalNote">This is your secret question. Memorize it and do not show others!</div>
-    <button id="modalGotItBtn">Got it</button>
+    <div class="answer-input-area">
+      <label for="modalAnswerInput">✏️ Your Answer:</label>
+      <input type="text" id="modalAnswerInput" placeholder="Type your answer..." />
+    </div>
+    <div class="note">Do not share your question or answer with others!</div>
+    <button id="modalSubmitBtn">Submit & Close</button>
   </div>
 </div>
 
