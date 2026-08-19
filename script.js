@@ -7,7 +7,7 @@ let playerAnswers = [];             // string per player
 let gamePhase = 'add';             // 'add' | 'view' | 'reveal'
 let questionsData = [];
 
-// DOM references
+// DOM refs
 const stepAdd = document.getElementById('step-add');
 const stepView = document.getElementById('step-view');
 const stepReveal = document.getElementById('step-reveal');
@@ -37,10 +37,10 @@ let currentModalPlayerIdx = -1;
 async function loadQuestions() {
   try {
     const res = await fetch('questions.json');
-    if (!res.ok) throw new Error('Failed to load questions.json');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
     questionsData = await res.json();
     if (!Array.isArray(questionsData) || questionsData.length === 0) {
-      throw new Error('JSON must contain a non‑empty array of question pairs.');
+      throw new Error('Empty or invalid questions array');
     }
   } catch (err) {
     console.error('Error loading questions:', err);
@@ -69,7 +69,10 @@ function renderPlayerList(container, list, withRemove = false, viewedArr = null,
     }
     if (clickable && !viewedArr[idx]) {
       tag.classList.add('clickable');
-      tag.addEventListener('click', () => showQuestionFor(idx));
+      // Use a direct closure to capture idx correctly
+      tag.addEventListener('click', (function(i) {
+        return function() { showQuestionFor(i); };
+      })(idx));
     }
     tag.textContent = name;
     if (withRemove) {
@@ -149,9 +152,12 @@ startGameBtn.addEventListener('click', async () => {
 
 // ----- Show modal with question + answer input -----
 function showQuestionFor(idx) {
-  if (gamePhase !== 'view') return;
+  if (gamePhase !== 'view') {
+    console.warn('showQuestionFor called but gamePhase is', gamePhase);
+    return;
+  }
   if (playerViewed[idx]) {
-    stepViewStatus.textContent = 'You already answered! Pass the device to the next player.';
+    stepViewStatus.textContent = '✅ You already answered! Pass the device to the next player.';
     return;
   }
 
@@ -159,14 +165,17 @@ function showQuestionFor(idx) {
   modalPlayerName.textContent = `👤 ${players[idx]}`;
   const isLiar = (idx === liarIndex);
   modalQuestion.textContent = isLiar ? currentQuestionPair.liar : currentQuestionPair.normal;
-  modalAnswerInput.value = ''; // clear previous answer
+  modalAnswerInput.value = '';
   modalAnswerInput.focus();
   modalOverlay.classList.add('show');
 }
 
 // ----- Submit answer from modal -----
 function submitAnswerFromModal() {
-  if (currentModalPlayerIdx === -1) return;
+  if (currentModalPlayerIdx === -1) {
+    console.warn('submitAnswerFromModal called with no current player');
+    return;
+  }
   const idx = currentModalPlayerIdx;
   const answer = modalAnswerInput.value.trim();
 
@@ -207,10 +216,10 @@ modalAnswerInput.addEventListener('keydown', (e) => {
   }
 });
 
-// Close modal only via the submit button (prevents accidental exit)
+// Prevent accidental modal close by clicking overlay
 modalOverlay.addEventListener('click', (e) => {
   if (e.target === modalOverlay) {
-    // Force them to submit
+    // Do nothing – force submit
   }
 });
 
@@ -259,6 +268,7 @@ function showReveal() {
 
 // ----- Play Again (keeps players, new round) -----
 playAgainBtn.addEventListener('click', () => {
+  // Reset state for new round
   liarIndex = -1;
   currentQuestionPair = null;
   playerViewed = [];
