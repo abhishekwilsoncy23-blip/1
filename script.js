@@ -5,6 +5,7 @@ let currentQuestionPair = null;      // { normal, liar }
 let playerViewed = [];              // boolean per player
 let votes = [];                    // votes[i] = index of player voted by player i (or -1 if not voted)
 let gamePhase = 'add';             // 'add' | 'view' | 'vote' | 'reveal'
+let questionsData = [];            // loaded from JSON
 
 // DOM references
 const stepAdd = document.getElementById('step-add');
@@ -36,7 +37,6 @@ const modalNote = document.getElementById('modalNote');
 const modalGotItBtn = document.getElementById('modalGotItBtn');
 
 let currentModalPlayerIdx = -1;
-let questionsData = []; // will hold loaded question pairs
 
 // ----- Load questions from JSON -----
 async function loadQuestions() {
@@ -49,7 +49,7 @@ async function loadQuestions() {
     }
   } catch (err) {
     console.error('Error loading questions:', err);
-    // Fallback: use embedded questions
+    // Fallback
     questionsData = [
       { normal: "What's your favorite color?", liar: "What's your favorite food?" },
       { normal: "Where would you like to travel?", liar: "What's your dream job?" },
@@ -124,11 +124,12 @@ playerNameInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') addPlayer();
 });
 
-// ----- Start Game -----
-startGameBtn.addEventListener('click', async () => {
-  if (players.length < 3) return;
-  // Load questions if not loaded
-  if (questionsData.length === 0) await loadQuestions();
+// ----- NEW: Start a fresh round (keeps players) -----
+function startRound() {
+  if (players.length < 3) {
+    alert('Need at least 3 players to start.');
+    return;
+  }
 
   // Randomly select liar
   liarIndex = Math.floor(Math.random() * players.length);
@@ -136,7 +137,7 @@ startGameBtn.addEventListener('click', async () => {
   const pairIdx = Math.floor(Math.random() * questionsData.length);
   currentQuestionPair = questionsData[pairIdx];
 
-  // Reset per‑game state
+  // Reset per‑round state
   playerViewed = new Array(players.length).fill(false);
   votes = new Array(players.length).fill(-1);
 
@@ -146,9 +147,16 @@ startGameBtn.addEventListener('click', async () => {
   renderPlayerList(viewPlayerList, players, false, playerViewed);
   proceedToVoteBtn.disabled = true;
   stepViewStatus.textContent = 'Tap your name to see your secret question.';
+}
+
+// ----- Start Game button (first time) -----
+startGameBtn.addEventListener('click', async () => {
+  if (players.length < 3) return;
+  if (questionsData.length === 0) await loadQuestions();
+  startRound();
 });
 
-// ----- Show question modal -----
+// ----- Show question modal (NO LIAR WARNING) -----
 function showQuestionFor(idx) {
   if (gamePhase !== 'view') return;
   if (playerViewed[idx]) {
@@ -157,12 +165,14 @@ function showQuestionFor(idx) {
   }
   currentModalPlayerIdx = idx;
   modalPlayerName.textContent = `👤 ${players[idx]}`;
-  // Determine which question to show
+  
   const isLiar = (idx === liarIndex);
+  // Show the correct question
   modalQuestion.textContent = isLiar ? currentQuestionPair.liar : currentQuestionPair.normal;
-  modalNote.textContent = isLiar 
-    ? '⚠️ You are the LIAR! Your question is different from the others.' 
-    : '✅ You are NOT the liar. Everyone else (except the liar) has the same question.';
+  
+  // 🔥 CHANGE: Same generic message for everyone – never explicitly says "you are the liar"
+  modalNote.textContent = 'This is your secret question. Memorize it and do not show others!';
+  
   modalOverlay.classList.add('show');
 }
 
@@ -186,10 +196,10 @@ modalGotItBtn.addEventListener('click', () => {
   }
 });
 
-// Close modal if overlay clicked (optional)
+// Close modal only via the button (prevents accidental close)
 modalOverlay.addEventListener('click', (e) => {
   if (e.target === modalOverlay) {
-    // Don't close – force them to click "Got it"
+    // Force them to click "Got it"
   }
 });
 
@@ -211,7 +221,6 @@ function renderVotingUI() {
     label.textContent = name;
     const select = document.createElement('select');
     select.dataset.playerIdx = idx;
-    // Options: all players except self
     const defaultOpt = document.createElement('option');
     defaultOpt.value = '';
     defaultOpt.textContent = '— vote —';
@@ -227,7 +236,6 @@ function renderVotingUI() {
       const val = parseInt(e.target.value);
       if (!isNaN(val)) {
         votes[idx] = val;
-        // Check if all voted
         const allVoted = votes.every(v => v !== -1);
         if (allVoted) {
           revealBtn.disabled = false;
@@ -236,14 +244,12 @@ function renderVotingUI() {
           revealBtn.disabled = true;
           stepVoteStatus.textContent = `${votes.filter(v => v !== -1).length} / ${players.length} voted.`;
         }
-        // Update row to show voted
         const statusSpan = row.querySelector('.voted');
         if (statusSpan) statusSpan.textContent = '✔ Voted';
       }
     });
     row.appendChild(label);
     row.appendChild(select);
-    // Status
     const statusSpan = document.createElement('span');
     statusSpan.className = 'voted';
     row.appendChild(statusSpan);
@@ -280,7 +286,6 @@ function showReveal() {
     </div>
   `;
 
-  // Vote summary
   let voteSummary = '<div class="vote-summary"><strong>Votes:</strong><br>';
   players.forEach((name, idx) => {
     const votedFor = votes[idx];
@@ -293,33 +298,23 @@ function showReveal() {
   voteSummary += '</div>';
   html += voteSummary;
 
-  // Who guessed correctly?
   const correctGuesses = votes.filter(v => v === liarIndex).length;
   html += `<p style="margin-top:12px;">✅ ${correctGuesses} out of ${players.length} correctly identified the liar.</p>`;
 
   revealContent.innerHTML = html;
 }
 
-// ----- Play Again -----
+// ----- Play Again (keeps player names, starts new round) -----
 playAgainBtn.addEventListener('click', () => {
-  // Reset everything but keep players and questions
-  players = [];
+  // Reset only the game state, NOT the players
   liarIndex = -1;
   currentQuestionPair = null;
   playerViewed = [];
   votes = [];
-  gamePhase = 'add';
-  showStep('step-add');
-  updateAddStep();
-  // Also reset any UI elements
-  viewPlayerList.innerHTML = '';
-  voteContainer.innerHTML = '';
-  revealContent.innerHTML = '';
-  stepViewStatus.textContent = '';
-  stepVoteStatus.textContent = '';
-  proceedToVoteBtn.disabled = true;
-  revealBtn.disabled = true;
-  modalOverlay.classList.remove('show');
+  gamePhase = 'view';
+  
+  // Immediately start a new round with the same group
+  startRound();
 });
 
 // ----- Initialisation -----
