@@ -1,0 +1,22 @@
+[
+  {
+    "normal": "What's your favorite movie?",
+    "liar": "What's your favorite book?"
+  },
+  {
+    "normal": "If you could time travel, where would you go?",
+    "liar": "If you could time travel, who would you meet?"
+  },
+  {
+    "normal": "What's the best gift you ever received?",
+    "liar": "What's the best gift you ever gave?"
+  },
+  {
+    "normal": "What's your dream vacation destination?",
+    "liar": "What's your dream car?"
+  },
+  {
+    "normal": "What's one thing you're really good at?",
+    "liar": "What's one thing you wish you were good at?"
+  }
+]
