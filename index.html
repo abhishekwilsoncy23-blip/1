@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Liar Game</title>
+  <title>Liar Game - Write Answers</title>
   <style>
     /* ----- Reset & Base ----- */
     * {
@@ -21,7 +21,7 @@
       padding: 20px;
     }
     .container {
-      max-width: 700px;
+      max-width: 750px;
       width: 100%;
       background: white;
       padding: 30px 25px;
@@ -131,44 +131,72 @@
       font-weight: bold;
     }
 
-    /* ----- Question modal ----- */
-    .modal-overlay {
-      position: fixed;
-      top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.5);
-      display: none;
-      justify-content: center;
-      align-items: center;
-      z-index: 999;
-    }
-    .modal-overlay.show {
+    /* ----- Write Answers ----- */
+    .answer-row {
       display: flex;
-    }
-    .modal-box {
-      background: white;
-      padding: 30px 35px;
-      border-radius: 16px;
-      max-width: 450px;
-      width: 90%;
-      text-align: center;
-      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-    }
-    .modal-box h3 {
-      margin-bottom: 10px;
-      color: #1a2639;
-    }
-    .modal-box .question-text {
-      font-size: 20px;
-      font-weight: 500;
-      margin: 20px 0;
-      padding: 15px;
+      align-items: center;
+      gap: 12px;
+      margin: 10px 0;
+      padding: 12px 15px;
       background: #f8f9fa;
-      border-radius: 10px;
+      border-radius: 8px;
+      flex-wrap: wrap;
     }
-    .modal-box .note {
+    .answer-row .player-name {
+      font-weight: 600;
+      min-width: 80px;
+    }
+    .answer-row input {
+      flex: 1;
+      min-width: 150px;
+      padding: 8px 12px;
+      border: 2px solid #ddd;
+      border-radius: 6px;
+      font-size: 15px;
+      transition: border 0.2s;
+    }
+    .answer-row input:focus {
+      border-color: #4a6fa5;
+    }
+    .answer-row input:disabled {
+      background: #e9ecef;
+      border-color: #ced4da;
+    }
+    .answer-row .status-badge {
       font-size: 14px;
       color: #6c757d;
-      margin-bottom: 20px;
+      min-width: 80px;
+    }
+    .answer-row .status-badge.done {
+      color: #28a745;
+      font-weight: bold;
+    }
+    .answer-row .btn-submit-answer {
+      background: #28a745;
+      padding: 6px 16px;
+      font-size: 14px;
+    }
+    .answer-row .btn-submit-answer:disabled {
+      background: #6c757d;
+    }
+
+    /* ----- Show answers display ----- */
+    .answer-display-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 12px 18px;
+      margin: 6px 0;
+      background: #f8f9fa;
+      border-radius: 8px;
+      border-left: 5px solid #4a6fa5;
+      font-size: 16px;
+    }
+    .answer-display-item .ans-name {
+      font-weight: 600;
+    }
+    .answer-display-item .ans-text {
+      font-style: italic;
+      color: #1a2639;
     }
 
     /* ----- Voting ----- */
@@ -246,6 +274,11 @@
       color: #6c757d;
       margin-top: 8px;
     }
+    .divider {
+      border: none;
+      border-top: 2px dashed #dee2e6;
+      margin: 20px 0;
+    }
   </style>
 </head>
 <body>
@@ -269,26 +302,46 @@
 
   <!-- STEP 2: View Questions -->
   <div id="step-view" class="step">
-    <p>Each player, tap your name to see your question.<br />
-    <small>Keep it secret – don't share until everyone has seen theirs!</small></p>
+    <p>Each player, tap your name to see your secret question.</p>
     <div id="viewPlayerList" class="player-list"></div>
     <div class="flex-center mt-15">
-      <button id="proceedToVoteBtn" disabled>Go to Voting</button>
+      <button id="proceedToWriteBtn" disabled>✍️ Go to Writing Answers</button>
     </div>
     <div class="status-msg text-center" id="stepViewStatus"></div>
   </div>
 
-  <!-- STEP 3: Voting -->
+  <!-- STEP 3: Write Answers -->
+  <div id="step-write" class="step">
+    <p>Each player, type your answer to your secret question.<br />
+    <small>Write clearly – everyone will see these later!</small></p>
+    <div id="writeContainer"></div>
+    <div class="flex-center mt-15">
+      <button id="revealAnswersBtn" disabled>📝 Reveal Everyone's Answers</button>
+    </div>
+    <div class="status-msg text-center" id="stepWriteStatus"></div>
+  </div>
+
+  <!-- STEP 4: Show All Answers (Discussion) -->
+  <div id="step-show-answers" class="step">
+    <p>📋 Here are everyone's answers. <strong>Discuss</strong> and figure out who the liar is!</p>
+    <div id="answersDisplayContainer"></div>
+    <hr class="divider" />
+    <div class="flex-center mt-20">
+      <button id="proceedToVoteFromAnswersBtn" class="success">🗳️ Go to Voting</button>
+    </div>
+  </div>
+
+  <!-- STEP 5: Voting -->
   <div id="step-vote" class="step">
-    <p>Each player votes for who they think is the <strong>liar</strong>.</p>
+    <p>Now vote for who you think is the <strong>liar</strong>, based on the answers.</p>
     <div id="voteContainer"></div>
     <div class="flex-center mt-20">
-      <button id="revealBtn" disabled>🔍 Reveal</button>
+      <button id="revealBtn" disabled>🔍 Reveal Truth</button>
     </div>
     <div class="status-msg text-center" id="stepVoteStatus"></div>
   </div>
 
-  <!-- STEP 4: Reveal -->
+  <!-- STEP 6: Final Reveal -->
   <div id="step-reveal" class="step">
     <div id="revealContent"></div>
     <div class="flex-center mt-20">
@@ -297,12 +350,12 @@
   </div>
 </div>
 
-<!-- Modal for showing question to a player -->
+<!-- Modal for viewing secret question -->
 <div class="modal-overlay" id="questionModal">
   <div class="modal-box">
     <h3 id="modalPlayerName">👤 Player</h3>
     <div class="question-text" id="modalQuestion">Your question goes here</div>
-    <div class="note" id="modalNote">This is your secret question. Don't show others!</div>
+    <div class="note" id="modalNote">This is your secret question. Memorize it and do not show others!</div>
     <button id="modalGotItBtn">Got it</button>
   </div>
 </div>
