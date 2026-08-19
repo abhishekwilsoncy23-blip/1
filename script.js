@@ -4,12 +4,13 @@ let liarIndex = -1;
 let currentQuestionPair = null;      // { normal, liar }
 let playerViewed = [];              // boolean per player (also implies answered)
 let playerAnswers = [];             // string per player
-let gamePhase = 'add';             // 'add' | 'view' | 'reveal'
+let gamePhase = 'add';             // 'add' | 'view' | 'show-answers' | 'reveal'
 let questionsData = [];
 
 // DOM refs
 const stepAdd = document.getElementById('step-add');
 const stepView = document.getElementById('step-view');
+const stepShowAnswers = document.getElementById('step-show-answers');
 const stepReveal = document.getElementById('step-reveal');
 
 const playerNameInput = document.getElementById('playerNameInput');
@@ -20,7 +21,9 @@ const stepAddStatus = document.getElementById('stepAddStatus');
 
 const viewPlayerList = document.getElementById('viewPlayerList');
 const stepViewStatus = document.getElementById('stepViewStatus');
-const revealBtn = document.getElementById('revealBtn');
+
+const answersContainer = document.getElementById('answersContainer');
+const revealLiarBtn = document.getElementById('revealLiarBtn');
 
 const revealContent = document.getElementById('revealContent');
 const playAgainBtn = document.getElementById('playAgainBtn');
@@ -69,7 +72,6 @@ function renderPlayerList(container, list, withRemove = false, viewedArr = null,
     }
     if (clickable && !viewedArr[idx]) {
       tag.classList.add('clickable');
-      // Use a direct closure to capture idx correctly
       tag.addEventListener('click', (function(i) {
         return function() { showQuestionFor(i); };
       })(idx));
@@ -139,7 +141,6 @@ function startRound() {
   gamePhase = 'view';
   showStep('step-view');
   renderPlayerList(viewPlayerList, players, false, playerViewed, true);
-  revealBtn.disabled = true;
   stepViewStatus.textContent = 'Tap your name to see your question and submit your answer.';
 }
 
@@ -172,10 +173,7 @@ function showQuestionFor(idx) {
 
 // ----- Submit answer from modal -----
 function submitAnswerFromModal() {
-  if (currentModalPlayerIdx === -1) {
-    console.warn('submitAnswerFromModal called with no current player');
-    return;
-  }
+  if (currentModalPlayerIdx === -1) return;
   const idx = currentModalPlayerIdx;
   const answer = modalAnswerInput.value.trim();
 
@@ -197,8 +195,8 @@ function submitAnswerFromModal() {
   // Check if all players have answered
   const allAnswered = playerAnswers.every(a => a !== '');
   if (allAnswered) {
-    revealBtn.disabled = false;
-    stepViewStatus.textContent = '🎉 Everyone has answered! Click Reveal.';
+    // Instead of enabling a button, automatically go to "show answers" step
+    showAllAnswers();
   } else {
     const count = playerAnswers.filter(a => a !== '').length;
     stepViewStatus.textContent = `${count} / ${players.length} have answered.`;
@@ -223,8 +221,29 @@ modalOverlay.addEventListener('click', (e) => {
   }
 });
 
-// ----- Reveal -----
-revealBtn.addEventListener('click', () => {
+// ----- Show All Answers (no liar) -----
+function showAllAnswers() {
+  gamePhase = 'show-answers';
+  showStep('step-show-answers');
+  answersContainer.innerHTML = '';
+  players.forEach((name, idx) => {
+    const div = document.createElement('div');
+    div.className = 'answer-item';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'ans-name';
+    nameSpan.textContent = name;
+    const ansSpan = document.createElement('span');
+    ansSpan.className = 'ans-text';
+    ansSpan.textContent = `“${playerAnswers[idx] || '—'}”`;
+    div.appendChild(nameSpan);
+    div.appendChild(ansSpan);
+    answersContainer.appendChild(div);
+  });
+  // The "Reveal Liar" button is already in the HTML
+}
+
+// ----- Reveal Liar -----
+revealLiarBtn.addEventListener('click', () => {
   gamePhase = 'reveal';
   showStep('step-reveal');
   showReveal();
@@ -252,11 +271,11 @@ function showReveal() {
     </div>
   `;
 
-  // Show all answers
+  // Show all answers again for context
   html += `<div style="margin-top:15px;"><strong>📝 All answers:</strong><br>`;
   players.forEach((name, idx) => {
     const isLiar = (idx === liarIndex);
-    html += `<div class="answer-reveal-item">
+    html += `<div class="answer-item" style="border-left-color:${isLiar ? '#dc3545' : '#4a6fa5'};">
               <span class="ans-name">${name} ${isLiar ? '🕵️' : ''}</span>
               <span class="ans-text">“${playerAnswers[idx] || '—'}”</span>
             </div>`;
