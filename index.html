@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Liar Game</title>
+  <style>
+    /* ----- Reset & Base ----- */
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #f0f2f5;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+    .container {
+      max-width: 700px;
+      width: 100%;
+      background: white;
+      padding: 30px 25px;
+      border-radius: 20px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 25px;
+      color: #1a2639;
+    }
+    .step {
+      display: none;
+      animation: fadeIn 0.3s ease;
+    }
+    .step.active {
+      display: block;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* ----- Input & Buttons ----- */
+    .input-group {
+      display: flex;
+      gap: 10px;
+      margin-bottom: 15px;
+    }
+    .input-group input {
+      flex: 1;
+      padding: 10px 15px;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      font-size: 16px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    .input-group input:focus {
+      border-color: #4a6fa5;
+    }
+    button {
+      background: #4a6fa5;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.1s;
+    }
+    button:hover {
+      background: #3b5a8a;
+    }
+    button:active {
+      transform: scale(0.97);
+    }
+    button.secondary {
+      background: #6c757d;
+    }
+    button.secondary:hover {
+      background: #5a6268;
+    }
+    button.success {
+      background: #28a745;
+    }
+    button.success:hover {
+      background: #218838;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    /* ----- Player list ----- */
+    .player-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 15px 0;
+    }
+    .player-tag {
+      background: #e9ecef;
+      padding: 8px 15px;
+      border-radius: 30px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 15px;
+    }
+    .player-tag .remove {
+      cursor: pointer;
+      font-weight: bold;
+      color: #dc3545;
+      margin-left: 4px;
+    }
+    .player-tag .remove:hover {
+      color: #a71d2a;
+    }
+    .player-tag.viewed {
+      background: #c3e6cb;
+    }
+    .player-tag.viewed::after {
+      content: " ✓";
+      color: #155724;
+      font-weight: bold;
+    }
+
+    /* ----- Question modal ----- */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 999;
+    }
+    .modal-overlay.show {
+      display: flex;
+    }
+    .modal-box {
+      background: white;
+      padding: 30px 35px;
+      border-radius: 16px;
+      max-width: 450px;
+      width: 90%;
+      text-align: center;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+    }
+    .modal-box h3 {
+      margin-bottom: 10px;
+      color: #1a2639;
+    }
+    .modal-box .question-text {
+      font-size: 20px;
+      font-weight: 500;
+      margin: 20px 0;
+      padding: 15px;
+      background: #f8f9fa;
+      border-radius: 10px;
+    }
+    .modal-box .note {
+      font-size: 14px;
+      color: #6c757d;
+      margin-bottom: 20px;
+    }
+
+    /* ----- Voting ----- */
+    .vote-row {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin: 12px 0;
+      padding: 10px;
+      background: #f8f9fa;
+      border-radius: 8px;
+    }
+    .vote-row label {
+      font-weight: 500;
+      min-width: 80px;
+    }
+    .vote-row select {
+      padding: 6px 12px;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+      font-size: 15px;
+      flex: 1;
+    }
+    .vote-row .voted {
+      color: #28a745;
+      font-weight: bold;
+      margin-left: 10px;
+    }
+
+    /* ----- Reveal results ----- */
+    .result-card {
+      background: #f8f9fa;
+      padding: 20px;
+      border-radius: 12px;
+      margin: 15px 0;
+    }
+    .result-card .liar-name {
+      font-size: 24px;
+      font-weight: bold;
+      color: #dc3545;
+    }
+    .result-card .question-compare {
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 15px 0;
+    }
+    .result-card .q-box {
+      background: white;
+      padding: 12px 18px;
+      border-radius: 8px;
+      border-left: 5px solid #4a6fa5;
+      flex: 1;
+      min-width: 150px;
+    }
+    .result-card .q-box.liar-q {
+      border-left-color: #dc3545;
+    }
+    .vote-summary {
+      margin-top: 15px;
+      font-size: 15px;
+    }
+    .vote-summary span {
+      display: inline-block;
+      margin: 3px 8px;
+    }
+
+    .mt-15 { margin-top: 15px; }
+    .mt-20 { margin-top: 20px; }
+    .text-center { text-align: center; }
+    .flex-center { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+    .status-msg {
+      font-size: 14px;
+      color: #6c757d;
+      margin-top: 8px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🕵️ Liar Game</h1>
+
+  <!-- STEP 1: Add Players -->
+  <div id="step-add" class="step active">
+    <p style="margin-bottom: 12px;">Enter at least 3 players.</p>
+    <div class="input-group">
+      <input type="text" id="playerNameInput" placeholder="Player name..." />
+      <button id="addPlayerBtn">Add</button>
+    </div>
+    <div id="playerListContainer" class="player-list"></div>
+    <div class="flex-center mt-15">
+      <button id="startGameBtn" disabled>Start Game</button>
+    </div>
+    <div class="status-msg text-center" id="stepAddStatus"></div>
+  </div>
+
+  <!-- STEP 2: View Questions -->
+  <div id="step-view" class="step">
+    <p>Each player, tap your name to see your question.<br />
+    <small>Keep it secret – don't share until everyone has seen theirs!</small></p>
+    <div id="viewPlayerList" class="player-list"></div>
+    <div class="flex-center mt-15">
+      <button id="proceedToVoteBtn" disabled>Go to Voting</button>
+    </div>
+    <div class="status-msg text-center" id="stepViewStatus"></div>
+  </div>
+
+  <!-- STEP 3: Voting -->
+  <div id="step-vote" class="step">
+    <p>Each player votes for who they think is the <strong>liar</strong>.</p>
+    <div id="voteContainer"></div>
+    <div class="flex-center mt-20">
+      <button id="revealBtn" disabled>🔍 Reveal</button>
+    </div>
+    <div class="status-msg text-center" id="stepVoteStatus"></div>
+  </div>
+
+  <!-- STEP 4: Reveal -->
+  <div id="step-reveal" class="step">
+    <div id="revealContent"></div>
+    <div class="flex-center mt-20">
+      <button id="playAgainBtn" class="success">Play Again</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal for showing question to a player -->
+<div class="modal-overlay" id="questionModal">
+  <div class="modal-box">
+    <h3 id="modalPlayerName">👤 Player</h3>
+    <div class="question-text" id="modalQuestion">Your question goes here</div>
+    <div class="note" id="modalNote">This is your secret question. Don't show others!</div>
+    <button id="modalGotItBtn">Got it</button>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
