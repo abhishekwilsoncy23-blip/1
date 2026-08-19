@@ -94,6 +94,12 @@
     button.success:hover {
       background: #1e7e34;
     }
+    button.danger {
+      background: #dc3545;
+    }
+    button.danger:hover {
+      background: #b02a37;
+    }
     button.secondary {
       background: #6c757d;
     }
@@ -101,7 +107,7 @@
       background: #5a6268;
     }
 
-    /* ---- Player list (Step 1) ---- */
+    /* ---- Player list ---- */
     .player-list {
       display: flex;
       flex-wrap: wrap;
@@ -131,7 +137,7 @@
       color: #a71d2a;
     }
 
-    /* ---- Step 2: Player tags (clickable) ---- */
+    /* ---- Clickable player tags (step view) ---- */
     .player-tag.clickable {
       background: #dbe4f0;
       cursor: pointer;
@@ -146,7 +152,6 @@
     .player-tag.clickable:active {
       transform: scale(0.96);
     }
-    /* Viewed / answered */
     .player-tag.viewed {
       background: #c3e6cb;
       border-color: #28a745;
@@ -158,13 +163,28 @@
       font-weight: 700;
     }
 
-    /* ---- Status messages ---- */
-    .status-msg {
-      font-size: 15px;
-      color: #4a5568;
-      margin-top: 8px;
-      text-align: center;
-      min-height: 1.6em;
+    /* ---- Answer display (after all answered) ---- */
+    .answers-list {
+      margin: 12px 0;
+    }
+    .answer-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 14px;
+      margin: 6px 0;
+      background: white;
+      border-radius: 10px;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.04);
+      border-left: 5px solid #4a6fa5;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .answer-item .ans-name {
+      font-weight: 600;
+    }
+    .answer-item .ans-text {
+      font-style: italic;
+      color: #1e2a41;
     }
 
     /* ---- Reveal card ---- */
@@ -199,24 +219,6 @@
     .result-card .q-box.liar-q {
       border-left-color: #dc3545;
     }
-    .answer-reveal-item {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 14px;
-      margin: 4px 0;
-      background: white;
-      border-radius: 8px;
-      flex-wrap: wrap;
-      gap: 8px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.02);
-    }
-    .answer-reveal-item .ans-name {
-      font-weight: 600;
-    }
-    .answer-reveal-item .ans-text {
-      font-style: italic;
-      color: #1e2a41;
-    }
 
     /* ---- Utility ---- */
     .mt-15 { margin-top: 15px; }
@@ -227,6 +229,13 @@
       justify-content: center;
       gap: 12px;
       flex-wrap: wrap;
+    }
+    .status-msg {
+      font-size: 15px;
+      color: #4a5568;
+      margin-top: 8px;
+      text-align: center;
+      min-height: 1.6em;
     }
 
     /* ---- Modal ---- */
@@ -318,7 +327,6 @@
       background: #1e7e34;
     }
 
-    /* ---- Responsive ---- */
     @media (max-width: 550px) {
       .container { padding: 16px 14px; }
       h1 { font-size: 1.6rem; }
@@ -352,13 +360,19 @@
   <div id="step-view" class="step">
     <p style="margin-bottom: 6px;"><strong>Tap your name</strong> to see your question, write your answer, and submit.</p>
     <div id="viewPlayerList" class="player-list"></div>
-    <div class="flex-center mt-20">
-      <button id="revealBtn" disabled class="success">🔍 Reveal</button>
-    </div>
     <div class="status-msg" id="stepViewStatus"></div>
   </div>
 
-  <!-- STEP 3: Reveal -->
+  <!-- STEP 3: Show All Answers (no liar) -->
+  <div id="step-show-answers" class="step">
+    <p style="margin-bottom: 6px;"><strong>📋 Here are everyone's answers.</strong><br>Discuss and decide who you think is the liar.</p>
+    <div id="answersContainer" class="answers-list"></div>
+    <div class="flex-center mt-20">
+      <button id="revealLiarBtn" class="danger">🕵️ Reveal Liar</button>
+    </div>
+  </div>
+
+  <!-- STEP 4: Final Reveal -->
   <div id="step-reveal" class="step">
     <div id="revealContent"></div>
     <div class="flex-center mt-20">
