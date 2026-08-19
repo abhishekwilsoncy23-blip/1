@@ -3,13 +3,16 @@ let players = [];
 let liarIndex = -1;
 let currentQuestionPair = null;      // { normal, liar }
 let playerViewed = [];              // boolean per player
-let votes = [];                    // votes[i] = index of player voted by player i (or -1 if not voted)
-let gamePhase = 'add';             // 'add' | 'view' | 'vote' | 'reveal'
-let questionsData = [];            // loaded from JSON
+let playerAnswers = [];             // string per player
+let votes = [];                    // votes[i] = index of player voted by player i (or -1)
+let gamePhase = 'add';             // 'add' | 'view' | 'write' | 'show-answers' | 'vote' | 'reveal'
+let questionsData = [];
 
 // DOM references
 const stepAdd = document.getElementById('step-add');
 const stepView = document.getElementById('step-view');
+const stepWrite = document.getElementById('step-write');
+const stepShowAnswers = document.getElementById('step-show-answers');
 const stepVote = document.getElementById('step-vote');
 const stepReveal = document.getElementById('step-reveal');
 
@@ -20,8 +23,15 @@ const startGameBtn = document.getElementById('startGameBtn');
 const stepAddStatus = document.getElementById('stepAddStatus');
 
 const viewPlayerList = document.getElementById('viewPlayerList');
-const proceedToVoteBtn = document.getElementById('proceedToVoteBtn');
+const proceedToWriteBtn = document.getElementById('proceedToWriteBtn');
 const stepViewStatus = document.getElementById('stepViewStatus');
+
+const writeContainer = document.getElementById('writeContainer');
+const revealAnswersBtn = document.getElementById('revealAnswersBtn');
+const stepWriteStatus = document.getElementById('stepWriteStatus');
+
+const answersDisplayContainer = document.getElementById('answersDisplayContainer');
+const proceedToVoteFromAnswersBtn = document.getElementById('proceedToVoteFromAnswersBtn');
 
 const voteContainer = document.getElementById('voteContainer');
 const revealBtn = document.getElementById('revealBtn');
@@ -49,7 +59,6 @@ async function loadQuestions() {
     }
   } catch (err) {
     console.error('Error loading questions:', err);
-    // Fallback
     questionsData = [
       { normal: "What's your favorite color?", liar: "What's your favorite food?" },
       { normal: "Where would you like to travel?", liar: "What's your dream job?" },
@@ -83,7 +92,6 @@ function renderPlayerList(container, list, withRemove = false, viewedArr = null)
       });
       tag.appendChild(removeSpan);
     }
-    // For viewing step, clicking the tag shows the question
     if (!withRemove && viewedArr !== undefined) {
       tag.style.cursor = 'pointer';
       tag.addEventListener('click', () => showQuestionFor(idx));
@@ -124,39 +132,36 @@ playerNameInput.addEventListener('keydown', (e) => {
   if (e.key === 'Enter') addPlayer();
 });
 
-// ----- NEW: Start a fresh round (keeps players) -----
+// ----- Start a fresh round -----
 function startRound() {
   if (players.length < 3) {
     alert('Need at least 3 players to start.');
     return;
   }
 
-  // Randomly select liar
   liarIndex = Math.floor(Math.random() * players.length);
-  // Randomly select question pair
   const pairIdx = Math.floor(Math.random() * questionsData.length);
   currentQuestionPair = questionsData[pairIdx];
 
-  // Reset per‑round state
   playerViewed = new Array(players.length).fill(false);
+  playerAnswers = new Array(players.length).fill('');
   votes = new Array(players.length).fill(-1);
 
-  // Show view step
   gamePhase = 'view';
   showStep('step-view');
   renderPlayerList(viewPlayerList, players, false, playerViewed);
-  proceedToVoteBtn.disabled = true;
+  proceedToWriteBtn.disabled = true;
   stepViewStatus.textContent = 'Tap your name to see your secret question.';
 }
 
-// ----- Start Game button (first time) -----
+// ----- Start Game button -----
 startGameBtn.addEventListener('click', async () => {
   if (players.length < 3) return;
   if (questionsData.length === 0) await loadQuestions();
   startRound();
 });
 
-// ----- Show question modal (NO LIAR WARNING) -----
+// ----- Show question modal (neutral message) -----
 function showQuestionFor(idx) {
   if (gamePhase !== 'view') return;
   if (playerViewed[idx]) {
@@ -165,14 +170,9 @@ function showQuestionFor(idx) {
   }
   currentModalPlayerIdx = idx;
   modalPlayerName.textContent = `👤 ${players[idx]}`;
-  
   const isLiar = (idx === liarIndex);
-  // Show the correct question
   modalQuestion.textContent = isLiar ? currentQuestionPair.liar : currentQuestionPair.normal;
-  
-  // 🔥 CHANGE: Same generic message for everyone – never explicitly says "you are the liar"
   modalNote.textContent = 'This is your secret question. Memorize it and do not show others!';
-  
   modalOverlay.classList.add('show');
 }
 
@@ -183,28 +183,143 @@ modalGotItBtn.addEventListener('click', () => {
   modalOverlay.classList.remove('show');
   currentModalPlayerIdx = -1;
 
-  // Update the view list
   renderPlayerList(viewPlayerList, players, false, playerViewed);
 
-  // Check if all viewed
   const allViewed = playerViewed.every(v => v === true);
   if (allViewed) {
-    proceedToVoteBtn.disabled = false;
-    stepViewStatus.textContent = 'Everyone has seen their question. Proceed to voting!';
+    proceedToWriteBtn.disabled = false;
+    stepViewStatus.textContent = 'Everyone has seen their question. Go write your answers!';
   } else {
     stepViewStatus.textContent = `${playerViewed.filter(v => v).length} / ${players.length} have viewed.`;
   }
 });
 
-// Close modal only via the button (prevents accidental close)
 modalOverlay.addEventListener('click', (e) => {
   if (e.target === modalOverlay) {
     // Force them to click "Got it"
   }
 });
 
-// ----- Proceed to Voting -----
-proceedToVoteBtn.addEventListener('click', () => {
+// ----- Proceed to Write Answers -----
+proceedToWriteBtn.addEventListener('click', () => {
+  gamePhase = 'write';
+  showStep('step-write');
+  renderWriteUI();
+  revealAnswersBtn.disabled = true;
+  stepWriteStatus.textContent = 'Each player submits their own answer.';
+});
+
+function renderWriteUI() {
+  writeContainer.innerHTML = '';
+  players.forEach((name, idx) => {
+    const row = document.createElement('div');
+    row.className = 'answer-row';
+    row.dataset.idx = idx;
+
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'player-name';
+    nameSpan.textContent = name;
+
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Write your answer...';
+    input.id = `answer-input-${idx}`;
+    if (playerAnswers[idx]) {
+      input.value = playerAnswers[idx];
+      input.disabled = true;
+    }
+
+    const submitBtn = document.createElement('button');
+    submitBtn.className = 'btn-submit-answer';
+    submitBtn.textContent = 'Submit';
+    submitBtn.dataset.idx = idx;
+    submitBtn.disabled = !!playerAnswers[idx];
+    submitBtn.addEventListener('click', () => submitAnswer(idx));
+
+    const statusSpan = document.createElement('span');
+    statusSpan.className = 'status-badge';
+    if (playerAnswers[idx]) {
+      statusSpan.textContent = '✔ Answered';
+      statusSpan.classList.add('done');
+    } else {
+      statusSpan.textContent = '⏳ Not yet';
+    }
+
+    // Allow pressing Enter in input
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' && !input.disabled) {
+        submitAnswer(idx);
+      }
+    });
+
+    row.appendChild(nameSpan);
+    row.appendChild(input);
+    row.appendChild(submitBtn);
+    row.appendChild(statusSpan);
+    writeContainer.appendChild(row);
+  });
+}
+
+function submitAnswer(idx) {
+  if (gamePhase !== 'write') return;
+  if (playerAnswers[idx]) return; // already submitted
+
+  const input = document.getElementById(`answer-input-${idx}`);
+  const answer = input.value.trim();
+  if (!answer) {
+    stepWriteStatus.textContent = 'Please write something before submitting.';
+    return;
+  }
+
+  playerAnswers[idx] = answer;
+  input.disabled = true;
+  // Update the row
+  const row = input.closest('.answer-row');
+  const submitBtn = row.querySelector('.btn-submit-answer');
+  submitBtn.disabled = true;
+  const statusSpan = row.querySelector('.status-badge');
+  statusSpan.textContent = '✔ Answered';
+  statusSpan.classList.add('done');
+
+  stepWriteStatus.textContent = '';
+
+  // Check if all answered
+  const allAnswered = playerAnswers.every(a => a !== '');
+  if (allAnswered) {
+    revealAnswersBtn.disabled = false;
+    stepWriteStatus.textContent = 'Everyone has answered! Reveal the answers.';
+  } else {
+    const count = playerAnswers.filter(a => a !== '').length;
+    stepWriteStatus.textContent = `${count} / ${players.length} answered.`;
+  }
+}
+
+// ----- Reveal Answers (show all written answers) -----
+revealAnswersBtn.addEventListener('click', () => {
+  gamePhase = 'show-answers';
+  showStep('step-show-answers');
+  renderAnswersDisplay();
+});
+
+function renderAnswersDisplay() {
+  answersDisplayContainer.innerHTML = '';
+  players.forEach((name, idx) => {
+    const div = document.createElement('div');
+    div.className = 'answer-display-item';
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'ans-name';
+    nameSpan.textContent = name;
+    const ansSpan = document.createElement('span');
+    ansSpan.className = 'ans-text';
+    ansSpan.textContent = `"${playerAnswers[idx] || '—'}"`;
+    div.appendChild(nameSpan);
+    div.appendChild(ansSpan);
+    answersDisplayContainer.appendChild(div);
+  });
+}
+
+// ----- Proceed to Voting (after seeing answers) -----
+proceedToVoteFromAnswersBtn.addEventListener('click', () => {
   gamePhase = 'vote';
   showStep('step-vote');
   renderVotingUI();
@@ -212,6 +327,7 @@ proceedToVoteBtn.addEventListener('click', () => {
   stepVoteStatus.textContent = 'Everyone must vote before revealing.';
 });
 
+// ----- Voting UI -----
 function renderVotingUI() {
   voteContainer.innerHTML = '';
   players.forEach((name, idx) => {
@@ -257,7 +373,7 @@ function renderVotingUI() {
   });
 }
 
-// ----- Reveal -----
+// ----- Reveal Truth -----
 revealBtn.addEventListener('click', () => {
   gamePhase = 'reveal';
   showStep('step-reveal');
@@ -286,7 +402,14 @@ function showReveal() {
     </div>
   `;
 
-  let voteSummary = '<div class="vote-summary"><strong>Votes:</strong><br>';
+  // Show answers again for context
+  html += `<div style="margin-top:15px;"><strong>📝 All written answers:</strong><br>`;
+  players.forEach((name, idx) => {
+    html += `<span style="display:inline-block;margin:4px 10px;">${name}: “${playerAnswers[idx] || '—'}”</span>`;
+  });
+  html += `</div>`;
+
+  let voteSummary = '<div class="vote-summary"><strong>🗳️ Votes:</strong><br>';
   players.forEach((name, idx) => {
     const votedFor = votes[idx];
     if (votedFor === -1) {
@@ -304,16 +427,16 @@ function showReveal() {
   revealContent.innerHTML = html;
 }
 
-// ----- Play Again (keeps player names, starts new round) -----
+// ----- Play Again (keeps players, new round) -----
 playAgainBtn.addEventListener('click', () => {
-  // Reset only the game state, NOT the players
+  // Reset state
   liarIndex = -1;
   currentQuestionPair = null;
   playerViewed = [];
+  playerAnswers = [];
   votes = [];
   gamePhase = 'view';
-  
-  // Immediately start a new round with the same group
+  // Start fresh round
   startRound();
 });
 
